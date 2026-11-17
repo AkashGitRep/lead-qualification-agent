@@ -60,23 +60,38 @@ def extract_lead(messages) -> dict:
             return block.input
     raise RuntimeError("model did not call save_lead")
 
-def run_conversation():
-    messages = [{"role": "user", "content": "Hi, I want a quote for my home interior."}]
-    while True:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=200,
-            system=SYSTEM_PROMPT,
-            messages=messages,
-        )
-        reply = response.content[0].text.strip()
-        if "DONE" in reply:
-            break
-        print(f"\nBot: {reply}")
-        messages.append({"role": "assistant", "content": reply})
-        messages.append({"role": "user", "content": input("You: ").strip()})
+QUESTIONS = [
+    ("property", "What type of property is it? (apartment, villa, independent house)"),
+    ("scope", "Is this a full home fit-out or only some rooms? (full, partial)"),
+    ("budget", "What is your budget? (under 10 lakh, 10 to 20 lakh, 20 to 40 lakh, above 40 lakh)"),
+    ("start", "When do you want to start? (within 1 month, 1 to 6 months, later)"),
+    ("area", "Which area of Bengaluru is the property in? (for example Whitefield or Koramangala)"),
+]
 
-    lead = extract_lead(messages)
+FIXED_CHOICES = {
+    "budget": ["under 10 lakh", "10 to 20 lakh", "20 to 40 lakh", "above 40 lakh"],
+    "start": ["within 1 month", "1 to 6 months", "later"],
+}
+
+def ask(field: str, question: str) -> str:
+    while True:
+        answer = input(f"\nBot: {question}\nYou: ").strip().lower()
+        if field not in FIXED_CHOICES:
+            if answer:
+                return answer
+            print("Please type an answer.")
+            continue
+        # Accept a choice if the answer contains it, or matches its first word
+        for choice in FIXED_CHOICES[field]:
+            if answer == choice or answer.replace(" lakhs", " lakh") == choice:
+                return choice
+        print(f"Please pick one of: {', '.join(FIXED_CHOICES[field])}")
+
+def run_conversation():
+    lead = {}
+    print("Hi! I can help you get a quote for your home interior.")
+    for field, question in QUESTIONS:
+        lead[field] = ask(field, question)
     print("\nLead:", lead)
     ok, reason = qualify(lead)
     print("Qualified:", ok, "-", reason)
