@@ -1,3 +1,5 @@
+from booking import get_available_slots, book_slot
+import re
 import json
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -87,6 +89,44 @@ def ask(field: str, question: str) -> str:
                 return choice
         print(f"Please pick one of: {', '.join(FIXED_CHOICES[field])}")
 
+
+def normalize_phone(raw: str) -> str | None:
+    digits = re.sub(r"[\s\-]", "", raw)
+    if digits.startswith("+91"):
+        digits = digits[3:]
+    elif digits.startswith("91") and len(digits) == 12:
+        digits = digits[2:]
+    return digits if re.fullmatch(r"\d{10}", digits) else None
+
+def offer_booking(lead: dict):
+    slots = get_available_slots()
+    print("\nAvailable slots:")
+    for i, s in enumerate(slots, 1):
+        print(f"  {i}. {s}")
+
+    while True:
+        choice = input("\nPick a slot number: ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(slots):
+            slot = slots[int(choice) - 1]
+            break
+        print(f"Please enter a number from 1 to {len(slots)}.")
+
+    name = input("Your name: ").strip()
+    while not name:
+        name = input("Please enter your name: ").strip()
+
+    phone = None
+    while phone is None:
+        phone = normalize_phone(input("Phone number (10 digits, +91 optional): ").strip())
+        if phone is None:
+            print("Please enter a valid 10-digit phone number.")
+
+    ok, reason = book_slot(phone, name, slot)
+    if ok:
+        print(f"\nBooked: {slot}. We'll confirm on {phone}.")
+    else:
+        print(f"\nCould not book: {reason}.")
+
 def run_conversation():
     lead = {}
     print("Hi! I can help you get a quote for your home interior.")
@@ -95,6 +135,11 @@ def run_conversation():
     print("\nLead:", lead)
     ok, reason = qualify(lead)
     print("Qualified:", ok, "-", reason)
+    if ok:
+        offer_booking(lead)
+    else:
+        print("Thanks. We can't take this project right now, but we'll keep your details on file.")
+
 
 if __name__ == "__main__":
     run_conversation()
