@@ -1,4 +1,5 @@
 from booking import get_available_slots, book_slot
+from leads import save_lead
 import re
 import json
 from anthropic import Anthropic
@@ -123,8 +124,10 @@ def offer_booking(lead: dict):
 
     ok, reason = book_slot(phone, name, slot)
     if ok:
+        save_lead({**lead, "name": name, "phone": phone}, "booked", slot)
         print(f"\nBooked: {slot}. We'll confirm on {phone}.")
     else:
+        save_lead({**lead, "name": name, "phone": phone}, "qualified_not_booked", slot)
         print(f"\nCould not book: {reason}.")
 
 def run_conversation():
@@ -138,6 +141,7 @@ def run_conversation():
     if ok:
         offer_booking(lead)
     else:
+        save_lead(lead, "not_qualified")
         print("Thanks. We can't take this project right now, but we'll keep your details on file.")
 
 
